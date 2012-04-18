@@ -1,7 +1,7 @@
 Tracker-Search Extension for Gnome-Shell
 
-Version: 1.1
+Version: 1.3
 
 TODO:
-* Handle Directories properly
 * Display File Location
+* Display more than one row of results

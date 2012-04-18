@@ -1,0 +1,12 @@
+const Tracker = imports.gi.Tracker;
+
+var conn = Tracker.SparqlConnection.get(null);
+
+
+
+
+
+while (cursor.next(null)) {
+      log( cursor.get_string(null));
+}
+
