@@ -77,6 +77,8 @@ TrackerSearchProvider.prototype = {
 
             while (cursor.next(null)) {
                var result = cursor.get_string (null);
+               if (String(result) == ",0") {continue;} // filter our, errornous tracker responses
+               global.log("filename: " + String(result));
                var fileStr = String(result).split(','); // cut of number of internal hits
                fileStr = decodeURI(fileStr[0]);
                // Extract filename from line
@@ -94,6 +96,7 @@ TrackerSearchProvider.prototype = {
                let contentType = Gio.content_type_guess(fileAndPath, null);
                var newContentType = contentType[0];
                if(contentType[1]){
+            	  global.log("mime-type: " + newContentType);
                   if(newContentType == "application/octet-stream") {  
                      let fileInfo =    Gio.file_new_for_path(fileAndPath).query_info('standard::type', 0, null);
                      if(fileInfo.get_file_type() == Gio.FileType.DIRECTORY) // for some reason 'content_type_guess' returns a wrong mime type for folders
