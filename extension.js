@@ -7,7 +7,7 @@
  * the Free Software Foundation; either version 3 of the License, or
  * (at your option) any later version.
  *
- * Version 1.3
+ * Version 1.4
  * 
  * https://github.com/cewee/tracker-search
  */
@@ -39,6 +39,14 @@ TrackerSearchProvider.prototype = {
          Search.SearchProvider.prototype._init.call(this, "Tracker Search");
       },
 
+      getResultMetas: function(resultIds) {
+        let metas = [];
+        for (let i = 0; i < resultIds.length; i++) {
+            metas.push(this.getResultMeta(resultIds[i]));
+        }
+        return metas;
+      },
+
       getResultMeta : function(resultId) {
          let type = resultId.contentType;
          let name = resultId.filename;
@@ -47,6 +55,7 @@ TrackerSearchProvider.prototype = {
             'name' : name,
             'createIcon' : function(size) {
                let icon = Gio.app_info_get_default_for_type(type,null).get_icon();
+		global.log("icon : " + String(icon));
                return imports.gi.St.TextureCache.get_default().load_gicon(null, icon, size);
             }
          };
@@ -77,8 +86,7 @@ TrackerSearchProvider.prototype = {
 
             while (cursor.next(null)) {
                var result = cursor.get_string (null);
-               if (String(result) == ",0") {continue;} // filter our, errornous tracker responses
-               global.log("filename: " + String(result));
+               if (String(result) == ",0") {continue;} // filter our, bogus tracker responses
                var fileStr = String(result).split(','); // cut of number of internal hits
                fileStr = decodeURI(fileStr[0]);
                // Extract filename from line
@@ -96,7 +104,6 @@ TrackerSearchProvider.prototype = {
                let contentType = Gio.content_type_guess(fileAndPath, null);
                var newContentType = contentType[0];
                if(contentType[1]){
-            	  global.log("mime-type: " + newContentType);
                   if(newContentType == "application/octet-stream") {  
                      let fileInfo =    Gio.file_new_for_path(fileAndPath).query_info('standard::type', 0, null);
                      if(fileInfo.get_file_type() == Gio.FileType.DIRECTORY) // for some reason 'content_type_guess' returns a wrong mime type for folders
@@ -113,8 +120,9 @@ TrackerSearchProvider.prototype = {
                   'contentType' : newContentType
                });
             }
-         } catch (error) { return []; }
-
+         } catch (error) { 
+		global.log(error.message); //
+	 	return []; }
          if (results.length > 0) {
             return (results);
          }
