@@ -1,6 +1,6 @@
 /* Tracker Search Provider for Gnome Shell
  *
- * Copyright (c) 2012 Christian Weber
+ * Copyright (c) 2012 Christian Weber, Felix Schultze
  *
  * This programm is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
