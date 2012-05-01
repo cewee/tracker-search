@@ -68,23 +68,8 @@ TrackerSearchProvider.prototype = {
         Util.spawn([ DEFAULT_EXEC, target ]);
     },
 
-    getInitialResultSet : function(terms) { // terms holds array of search items
-        // check if 1st search term is >2 letters else drop the request
-        if(terms[0].length <= 2) {
-            return [];
-        }
-
+    filterResults : function(cursor) {
         let results = [];
-        /* Build sparql query */
-        var new_query = "SELECT nie:url(?f) WHERE {?f fts:match'";
-        for ( var i = 0; i < terms.length; i++) {
-            new_query = new_query + " " + terms[i] + "*";
-        }
-
-        new_query = new_query + "' }  ORDER BY DESC (fts:rank(?f))  LIMIT " + String(MAX_RESULTS);
-
-        let conn = Tracker.SparqlConnection.get(null);
-        let cursor = conn.query(new_query, null);
 
         try {
             while (cursor != null && cursor.next(null)) {
@@ -98,7 +83,7 @@ TrackerSearchProvider.prototype = {
                 var fileStr = String(result).split(',');
                 fileStr = decodeURI(fileStr[0]);
 
-                // Extract filename from line
+                // extract filename from line
                 var splitted = String(fileStr).split('/');
                 var filename = decodeURI(splitted[splitted.length - 1]);
                 let ft = String(filename).split('.');
@@ -111,8 +96,7 @@ TrackerSearchProvider.prototype = {
                 }
 
                 // if file does not exist, it won't be shown
-                if(!Gio.file_new_for_path(fileAndPath).query_exists(null))
-                {
+                if(!Gio.file_new_for_path(fileAndPath).query_exists(null)) {
                     continue;
                 }
 
@@ -122,8 +106,6 @@ TrackerSearchProvider.prototype = {
                 var newContentType = contentType[0];
                 if(contentType[1]){
                     if(newContentType == "application/octet-stream") {
-
-
                         let fileInfo = Gio.file_new_for_path(fileAndPath).query_info('standard::type', 0, null);
 
                         // for some reason 'content_type_guess' returns a wrong mime type for folders
@@ -144,14 +126,40 @@ TrackerSearchProvider.prototype = {
                 });
             }
         } catch (error) {
-            global.log("cursor " + error.message); //
+            global.log("Tracker: Could not traverse results cursor: " + error.message);
             return [];
         }
 
         return (results.length > 0) ? results : [];
     },
 
+    getInitialResultSet : function(terms) {
+	// terms holds array of search items
+        // check if 1st search term is >2 letters else drop the request
+        var new_query = "SELECT nie:url(?f) WHERE {?f fts:match'";
+        for ( var i = 0; i < terms.length; i++) {
+            new_query = new_query + " " + terms[i] + "*";
+        }
+
+        new_query = new_query + "' }  ORDER BY DESC (fts:rank(?f))  LIMIT " + String(MAX_RESULTS);
+
+        let conn = Tracker.SparqlConnection.get(null);
+
+        global.log("Tracker: Running query '" + new_query + "'");
+        let cursor = conn.query(new_query, null);
+
+        global.log("Tracker: Filtering results...");
+	return this.filterResults(cursor);
+    },
+
     getSubsearchResultSet : function(previousResults, terms) {
+        if(terms[0].length <= 2) {
+            global.log("Tracker: Ignoring search terms, length < 3");
+            return [];
+        }
+
+        global.log("Tracker: Searching for '" + terms + "'");
+
         return this.getInitialResultSet(terms);
     },
 };
