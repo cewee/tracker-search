@@ -27,17 +27,27 @@ const DEFAULT_EXEC = 'xdg-open';
 /* Limit search results, since number of displayed items is limited */
 const MAX_RESULTS = 12;
 
-var trackerSearchProvider = null;
+const CategoryType = {
+    FTS : 0,
+    FILES : 1,
+    FOLDERS : 2
+};
 
-function TrackerSearchProvider() {
-   this._init();
+var trackerSearchProviderFiles = null;
+var trackerSearchProviderFolders = null;
+
+function TrackerSearchProvider(title, categoryType) {
+    this._init(title, categoryType);
 }
 
 TrackerSearchProvider.prototype = {
     __proto__ : Search.SearchProvider.prototype,
+    _categoryType : -1,
 
-    _init : function(name) {
-        Search.SearchProvider.prototype._init.call(this, "TRACKER SEARCH");
+    _init : function(title, categoryType) {
+	this._categoryType = categoryType;
+        Search.SearchProvider.prototype._init.call(this, title + " (from Tracker)");
+	global.log(this.title + ": Created provider (type:" + String(this._categoryType) + ")");
     },
 
     getResultMetas: function(resultIds) {
@@ -50,7 +60,7 @@ TrackerSearchProvider.prototype = {
 
     getResultMeta : function(resultId) {
         let type = resultId.contentType;
-        let name = resultId.filename;
+        let name = resultId.name;
         return {
             'id' : resultId,
             'name' : name,
@@ -62,73 +72,74 @@ TrackerSearchProvider.prototype = {
          };
       },
 
-    activateResult : function(id) {
+    activateResult : function(result) {
         // Action executed when clicked on result
-        var target = id.fileAndPath;
-        Util.spawn([ DEFAULT_EXEC, target ]);
+        var uri = result.id;
+	var f = Gio.file_new_for_uri(uri);
+	var fileName = f.get_path();
+
+        Util.spawn([DEFAULT_EXEC, fileName]);
     },
 
-    getInitialResultSet : function(terms) { // terms holds array of search items
+    getQuery : function (terms) {
+	// terms holds array of search items
         // check if 1st search term is >2 letters else drop the request
-        if(terms[0].length <= 2) {
-            return [];
-        }
+	var query = "";
 
+	if (this._categoryType == CategoryType.FTS) {
+	    var terms_in_sparql = "";
+
+            for (var i = 0; i < terms.length; i++) {
+		if (terms_in_sparql.length > 0)
+		    terms_in_sparql += " ";
+
+		terms_in_sparql += terms[i] + "*";
+            }
+	    // Technically, the tag should really be matched
+	    // separately not as one phrase too.
+	    query += "SELECT ?urn nie:url(?urn) tracker:coalesce(nie:title(?urn), nfo:fileName(?urn)) nie:url(?parent) nfo:fileLastModified(?urn) WHERE { { ?urn a nfo:FileDataObject . ?urn fts:match \"" + terms_in_sparql + "\" } UNION { ?urn nao:hasTag ?tag . FILTER (fn:contains (fn:lower-case (nao:prefLabel(?tag)), \"" + terms + "\")) } OPTIONAL { ?urn nfo:belongsToContainer ?parent . } } ORDER BY DESC(nfo:fileLastModified(?urn)) ASC(nie:title(?urn)) OFFSET 0 LIMIT " + String(MAX_RESULTS);
+
+	} else if (this._categoryType == CategoryType.FILES) {
+	    // TODO: Do we really want this?
+	} else if (this._categoryType == CategoryType.FOLDERS) {
+	    query += "SELECT ?urn nie:url(?urn) tracker:coalesce(nie:title(?urn), nfo:fileName(?urn)) nie:url(?parent) nfo:fileLastModified(?urn) WHERE {";
+	    query += "  ?urn a nfo:Folder .";
+	    query += "  FILTER (fn:contains (fn:lower-case (nfo:fileName(?urn)), '" + terms + "')) .";
+	    query += "  ?urn nfo:belongsToContainer ?parent ;";
+	    query += "  tracker:available true .";
+	    query += "} ORDER BY DESC(nfo:fileLastModified(?urn)) DESC(nie:contentCreated(?urn)) ASC(nie:title(?urn)) OFFSET 0 LIMIT " + String(MAX_RESULTS);
+	}
+
+	return query;
+    },
+
+    filterResults : function(cursor) {
         let results = [];
-        /* Build sparql query */
-        var new_query = "SELECT nie:url(?f) WHERE {?f fts:match'";
-        for ( var i = 0; i < terms.length; i++) {
-            new_query = new_query + " " + terms[i] + "*";
-        }
-
-        new_query = new_query + "' }  ORDER BY DESC (fts:rank(?f))  LIMIT " + String(MAX_RESULTS);
-
-        let conn = Tracker.SparqlConnection.get(null);
-        let cursor = conn.query(new_query, null);
 
         try {
             while (cursor != null && cursor.next(null)) {
-                var result = cursor.get_string (null);
-                // filter our, bogus tracker responses
-                if (String(result) == ",0") {
-                    continue;
-                }
+                var urn = cursor.get_string(0)[0];
+                var uri = cursor.get_string(1)[0];
+                var title = cursor.get_string(2)[0];
+                var parentUri = cursor.get_string(3)[0];
 
-                // cut of number of internal hits
-                var fileStr = String(result).split(',');
-                fileStr = decodeURI(fileStr[0]);
-
-                // Extract filename from line
-                var splitted = String(fileStr).split('/');
-                var filename = decodeURI(splitted[splitted.length - 1]);
-                let ft = String(filename).split('.');
-
-                // extract path and filename
-                splitted = String(fileStr).split('ile://');
-                var fileAndPath = "";
-                if (splitted.length == 2) {
-                    fileAndPath = decodeURI(splitted[1]);
-                }
+		global.log (this.title + ": uri '" + uri + "', title '" + title + "', parent uri '" + parentUri + "'");
 
                 // if file does not exist, it won't be shown
-                if(!Gio.file_new_for_path(fileAndPath).query_exists(null))
-                {
-                    continue;
-                }
+		var f = Gio.file_new_for_uri(uri);
+		var fileName = f.get_path();
 
                 // contentType is an array, the index "1" set true,
                 // if function is uncertain if type is the right one
-                let contentType = Gio.content_type_guess(fileAndPath, null);
+                let contentType = Gio.content_type_guess(fileName, null);
                 var newContentType = contentType[0];
+
                 if(contentType[1]){
                     if(newContentType == "application/octet-stream") {
-
-
-                        let fileInfo = Gio.file_new_for_path(fileAndPath).query_info('standard::type', 0, null);
+                        let fileInfo = Gio.file_new_for_path(fileName).query_info('standard::type', 0, null);
 
                         // for some reason 'content_type_guess' returns a wrong mime type for folders
-                        if(fileInfo.get_file_type() == Gio.FileType.DIRECTORY)
-                        {
+                        if(fileInfo.get_file_type() == Gio.FileType.DIRECTORY) {
                             newContentType = "inode/directory";
                         } else {
                             // unrecognized mime-types are set to text, so that later an icon can be picked
@@ -138,33 +149,64 @@ TrackerSearchProvider.prototype = {
                 }
 
                 results.push({
-                    'filename' : filename,
-                    'fileAndPath' : fileAndPath,
+                    'id' : uri,
+                    'name' : title,
                     'contentType' : newContentType
                 });
             }
         } catch (error) {
-            global.log("cursor " + error.message); //
+            global.log(this.title + ": Could not traverse results cursor: " + error.message);
             return [];
         }
 
         return (results.length > 0) ? results : [];
     },
 
+    getInitialResultSet : function(terms) {
+        if(terms[0].length < 3) {
+            global.log(this.title + ": Ignoring search term:'" + terms + "', length < 3");
+            return [];
+        }
+
+        let conn = Tracker.SparqlConnection.get(null);
+
+	var query = this.getQuery(terms);
+        global.log(this.title + ": Running query '" + query + "'");
+        let cursor = conn.query(query, null);
+
+        global.log(this.title + ": Filtering results...");
+	return this.filterResults(cursor);
+    },
+
     getSubsearchResultSet : function(previousResults, terms) {
+        if(terms[0].length < 3) {
+            global.log(this.title + ": Ignoring search term:'" + terms + "', length < 3");
+            return [];
+        }
+
+        global.log(this.title + ": Searching for '" + terms + "'");
+
         return this.getInitialResultSet(terms);
     },
 };
+
+
 
 function init(meta) {
 }
 
 function enable() {
-    trackerSearchProvider = new TrackerSearchProvider();
-    Main.overview.addSearchProvider(trackerSearchProvider);
+    trackerSearchProviderFolders = new TrackerSearchProvider("Folders", CategoryType.FOLDERS);
+    Main.overview.addSearchProvider(trackerSearchProviderFolders);
+
+    trackerSearchProviderFiles = new TrackerSearchProvider("Files", CategoryType.FTS);
+    Main.overview.addSearchProvider(trackerSearchProviderFiles);
 }
 
 function disable() {
-    Main.overview.removeSearchProvider(trackerSearchProvider);
-    trackerSearchProvider = null;
+    Main.overview.removeSearchProvider(trackerSearchProviderFiles);
+    trackerSearchProviderFiles = null;
+
+    Main.overview.removeSearchProvider(trackerSearchProviderFolders);
+    trackerSearchProviderFolders = null;
 }
