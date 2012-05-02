@@ -26,6 +26,7 @@ const St        = imports.gi.St;
 const DEFAULT_EXEC = 'xdg-open';
 /* Limit search results, since number of displayed items is limited */
 const MAX_RESULTS = 12;
+const MAX_SEARCH_RESULTS_ROWS = 2;
 
 const CategoryType = {
     FTS : 0,
@@ -47,7 +48,6 @@ TrackerSearchProvider.prototype = {
     _init : function(title, categoryType) {
 	this._categoryType = categoryType;
         Search.SearchProvider.prototype._init.call(this, title + " (from Tracker)");
-	global.log(this.title + ": Created provider (type:" + String(this._categoryType) + ")");
     },
 
     getResultMetas: function(resultIds) {
@@ -66,7 +66,6 @@ TrackerSearchProvider.prototype = {
             'name' : name,
             'createIcon' : function(size) {
                 let icon = Gio.app_info_get_default_for_type(type,null).get_icon();
-
                 return imports.gi.St.TextureCache.get_default().load_gicon(null, icon, size);
             }
          };
@@ -75,29 +74,27 @@ TrackerSearchProvider.prototype = {
     activateResult : function(result) {
         // Action executed when clicked on result
         var uri = result.id;
-	var f = Gio.file_new_for_uri(uri);
-	var fileName = f.get_path();
-
+    	var f = Gio.file_new_for_uri(uri);
+	    var fileName = f.get_path();
         Util.spawn([DEFAULT_EXEC, fileName]);
     },
 
     getQuery : function (terms) {
-	// terms holds array of search items
-        // check if 1st search term is >2 letters else drop the request
 	var query = "";
 
 	if (this._categoryType == CategoryType.FTS) {
 	    var terms_in_sparql = "";
 
-            for (var i = 0; i < terms.length; i++) {
-		if (terms_in_sparql.length > 0)
-		    terms_in_sparql += " ";
-
-		terms_in_sparql += terms[i] + "*";
-            }
+        for (var i = 0; i < terms.length; i++) {
+    		if (terms_in_sparql.length > 0) terms_in_sparql += " ";
+		    terms_in_sparql += terms[i] + "*";
+        }
 	    // Technically, the tag should really be matched
 	    // separately not as one phrase too.
-	    query += "SELECT ?urn nie:url(?urn) tracker:coalesce(nie:title(?urn), nfo:fileName(?urn)) nie:url(?parent) nfo:fileLastModified(?urn) WHERE { { ?urn a nfo:FileDataObject . ?urn fts:match \"" + terms_in_sparql + "\" } UNION { ?urn nao:hasTag ?tag . FILTER (fn:contains (fn:lower-case (nao:prefLabel(?tag)), \"" + terms + "\")) } OPTIONAL { ?urn nfo:belongsToContainer ?parent . } } ORDER BY DESC(nfo:fileLastModified(?urn)) ASC(nie:title(?urn)) OFFSET 0 LIMIT " + String(MAX_RESULTS);
+	    query += "SELECT ?urn nie:url(?urn) tracker:coalesce(nie:title(?urn), nfo:fileName(?urn)) nie:url(?parent) nfo:fileLastModified(?urn) WHERE { { ";
+   	    query += " ?urn a nfo:FileDataObject .";
+   	    query += " ?urn fts:match \"" + terms_in_sparql + "\" } UNION { ?urn nao:hasTag ?tag . FILTER (fn:contains (fn:lower-case (nao:prefLabel(?tag)), \"" + terms + "\")) }";
+   	    query += " OPTIONAL { ?urn nfo:belongsToContainer ?parent .  ?r2 a nfo:Folder . FILTER(?r2 = ?urn). } . FILTER(!BOUND(?r2)). } ORDER BY DESC(nfo:fileLastModified(?urn)) ASC(nie:title(?urn)) OFFSET 0 LIMIT " + String(MAX_RESULTS);
 
 	} else if (this._categoryType == CategoryType.FILES) {
 	    // TODO: Do we really want this?
@@ -123,11 +120,10 @@ TrackerSearchProvider.prototype = {
                 var title = cursor.get_string(2)[0];
                 var parentUri = cursor.get_string(3)[0];
 
-		global.log (this.title + ": uri '" + uri + "', title '" + title + "', parent uri '" + parentUri + "'");
-
                 // if file does not exist, it won't be shown
-		var f = Gio.file_new_for_uri(uri);
-		var fileName = f.get_path();
+        		var f = Gio.file_new_for_uri(uri);
+        		if(!f.query_exists(null)) {continue;}
+		        var fileName = f.get_path();
 
                 // contentType is an array, the index "1" set true,
                 // if function is uncertain if type is the right one
@@ -137,7 +133,6 @@ TrackerSearchProvider.prototype = {
                 if(contentType[1]){
                     if(newContentType == "application/octet-stream") {
                         let fileInfo = Gio.file_new_for_path(fileName).query_info('standard::type', 0, null);
-
                         // for some reason 'content_type_guess' returns a wrong mime type for folders
                         if(fileInfo.get_file_type() == Gio.FileType.DIRECTORY) {
                             newContentType = "inode/directory";
@@ -163,29 +158,29 @@ TrackerSearchProvider.prototype = {
     },
 
     getInitialResultSet : function(terms) {
+        // terms holds array of search items
+        // check if 1st search term is >2 letters else drop the request
         if(terms[0].length < 3) {
-            global.log(this.title + ": Ignoring search term:'" + terms + "', length < 3");
             return [];
         }
 
-        let conn = Tracker.SparqlConnection.get(null);
-
-	var query = this.getQuery(terms);
-        global.log(this.title + ": Running query '" + query + "'");
-        let cursor = conn.query(query, null);
-
-        global.log(this.title + ": Filtering results...");
+        try {
+            var conn = Tracker.SparqlConnection.get(null);
+        	var query = this.getQuery(terms);
+            var cursor = conn.query(query, null);
+        } catch (error) {
+            global.log("Querying Tracker failed. Please make sure you have the --GObject Introspection-- package for Tracker installed.");
+            global.log(error.message);
+            return [];
+        }
 	return this.filterResults(cursor);
     },
 
     getSubsearchResultSet : function(previousResults, terms) {
-        if(terms[0].length < 3) {
-            global.log(this.title + ": Ignoring search term:'" + terms + "', length < 3");
+        // check if 1st search term is >2 letters else drop the request
+        if(terms[0].length < 3) {  
             return [];
         }
-
-        global.log(this.title + ": Searching for '" + terms + "'");
-
         return this.getInitialResultSet(terms);
     },
 };
