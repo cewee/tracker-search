@@ -172,6 +172,7 @@ TrackerSearchProvider.prototype = {
                 var title = cursor.get_string(2)[0];
                 var parentUri = cursor.get_string(3)[0];
                 var lastMod = cursor.get_string(4)[0];
+                var lastMod = "Modified: " + lastMod.split('T')[0];
                 var filename = decodeURI(uri.split('/').pop());
                 
                 // if file does not exist, it won't be shown
@@ -179,7 +180,7 @@ TrackerSearchProvider.prototype = {
         		if(!f.query_exists(null)) {continue;}
 		        var path = f.get_path();
 		        // clean up path
-                var prettyPath = path.replace("/home/" + GLib.get_user_name() , "~");
+                var prettyPath = path.substr(0,path.length - filename.length).replace("/home/" + GLib.get_user_name() , "~");
                
                 // contentType is an array, the index "1" set true,
                 // if function is uncertain if type is the right one
