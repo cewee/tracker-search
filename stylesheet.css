@@ -1,0 +1,28 @@
+.title {
+    font-size: 1.2em;
+    font-weight: bold;
+}
+.result-path {
+    font-size: .7em;
+}
+.result-detail {
+    padding-left: 7px;
+    font-size: .8em;
+}
+.icon-info-frame{
+    padding-top: 5px;  
+}
+.result-content {
+    border-radius: 7px;
+    padding: 10px;
+    width: 220px;
+    height: 95px;
+    background-color: rgba(0.0, 0.0, 0.0, 0.3);
+    color: white;
+}
+.tracker-grid {
+    spacing: 8px;
+    -shell-grid-horizontal-item-size: 230px;
+    -shell-grid-vertical-item-size: 110px;
+}
+
