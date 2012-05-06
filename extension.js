@@ -1,6 +1,6 @@
 /* Tracker Search Provider for Gnome Shell
  *
- * Copyright (c) 2012 Christian Weber, Felix Schultze
+ * 2012 Contributors Christian Weber, Felix Schultze, Martyn Russell
  *
  * This programm is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,14 +39,14 @@ function TrackerResult(result) {
     this._init(result);
 }
 
+// Overwriting layout to display search results.
 TrackerResult.prototype = {
     _init: function(resultMeta) {
-        // Building Result Items to display
         this.actor = new St.Bin({ reactive: true, track_hover: true });
         var MainBox = new St.BoxLayout( { style_class: 'result-content', vertical: true });
         this.actor.set_child(MainBox);
         var icon = resultMeta.createIcon(ICON_SIZE);      
-        
+        // View for regular files
         if (resultMeta.contentType != "inode/directory" ) {       
             let title = new St.Label({ text: resultMeta.name, style_class: 'title' });
             MainBox.add(title, { x_fill: false, x_align: St.Align.START });
@@ -63,7 +63,7 @@ TrackerResult.prototype = {
             SideBox.add(lastMod, { x_fill: false, x_align: St.Align.START });
             let prettyPath = new St.Label({ text: resultMeta.prettyPath, style_class: 'result-path' });
             MainBox.add(prettyPath, { x_fill: false, x_align: St.Align.START });
-        } else {
+        } else { // View for folder elements
             let titleDir = new St.Label({ text: resultMeta.name, style_class: 'titleDir' });
             MainBox.add(titleDir, { x_fill: false, y_fill: true, x_align: St.Align.START,  y_align: St.Align.MIDDLE });
             let prettyPath = new St.Label({ text: resultMeta.prettyPath, style_class: 'result-pathDir' });
@@ -145,6 +145,7 @@ TrackerSearchProvider.prototype = {
    	    query += " ?urn a nfo:FileDataObject .";
    	    query += " ?urn fts:match \"" + terms_in_sparql + "\" } UNION { ?urn nao:hasTag ?tag . FILTER (fn:contains (fn:lower-case (nao:prefLabel(?tag)), \"" + terms + "\")) }";
    	    query += " OPTIONAL { ?urn nfo:belongsToContainer ?parent .  ?r2 a nfo:Folder . FILTER(?r2 = ?urn). } . FILTER(!BOUND(?r2)). } ORDER BY DESC(nfo:fileLastModified(?urn)) ASC(nie:title(?urn)) OFFSET 0 LIMIT " + String(MAX_RESULTS);
+   	    //  ?r2 a nfo:Folder . FILTER(?r2 = ?urn). } . FILTER(!BOUND(?r2) is supposed to filter out folders, but this fails for 'root' folders in which is indexed (as 'Music', 'Documents' and so on ..) - WHY?
 
 	} else if (this._categoryType == CategoryType.FILES) {
 	    // TODO: Do we really want this?
@@ -172,19 +173,16 @@ TrackerSearchProvider.prototype = {
                 var lastMod = cursor.get_string(4)[0];
                 var lastMod = "Modified: " + lastMod.split('T')[0];
                 var filename = decodeURI(uri.split('/').pop());
-                
                 // if file does not exist, it won't be shown
         		var f = Gio.file_new_for_uri(uri);
         		if(!f.query_exists(null)) {continue;}
 		        var path = f.get_path();
 		        // clean up path
-                var prettyPath = path.substr(0,path.length - filename.length).replace("/home/" + GLib.get_user_name() , "~");
-               
+                var prettyPath = path.substr(0,path.length - filename.length).replace("/home/" + GLib.get_user_name() , "~");               
                 // contentType is an array, the index "1" set true,
                 // if function is uncertain if type is the right one
                 let contentType = Gio.content_type_guess(path, null);
                 var newContentType = contentType[0];
-
                 if(contentType[1]){
                     if(newContentType == "application/octet-stream") {
                         let fileInfo = Gio.file_new_for_path(path).query_info('standard::type', 0, null);
@@ -197,7 +195,6 @@ TrackerSearchProvider.prototype = {
                         }
                     }
                 }
-
                 results.push({
                     'id' : uri,
                     'name' : title,
