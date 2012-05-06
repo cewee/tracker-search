@@ -43,35 +43,33 @@ TrackerResult.prototype = {
     _init: function(resultMeta) {
         // Building Result Items to display
         this.actor = new St.Bin({ reactive: true, track_hover: true });
-        let MainBox = new St.BoxLayout( { style_class: 'result-content', vertical: true });
+        var MainBox = new St.BoxLayout( { style_class: 'result-content', vertical: true });
         this.actor.set_child(MainBox);
-        // title bar
-        let title = new St.Label({ text: resultMeta.name, style_class: 'title' });
-        MainBox.add(title, { x_fill: false, x_align: St.Align.START });
-        //box for icon and detailed information about the file
-        let IconInfoFrame = new St.BoxLayout({ style_class: 'icon-info-frame', vertical: false });
-        let IconBox = new St.BoxLayout({ vertical: false });
-    
-        MainBox.add(IconInfoFrame, { x_fill: false, x_align: St.Align.START });
-        var icon = resultMeta.createIcon(ICON_SIZE);        
-
-        if (resultMeta.contentType != "inode/directory" ) { // skip file infos for folders               
+        var icon = resultMeta.createIcon(ICON_SIZE);      
+        
+        if (resultMeta.contentType != "inode/directory" ) {       
+            let title = new St.Label({ text: resultMeta.name, style_class: 'title' });
+            MainBox.add(title, { x_fill: false, x_align: St.Align.START });
+            let IconInfoFrame = new St.BoxLayout({ style_class: 'icon-info-frame', vertical: false });
+            let IconBox = new St.BoxLayout({ vertical: false });
+            MainBox.add(IconInfoFrame, { x_fill: false, x_align: St.Align.START, y_align: St.Align.MIDDLE });
             IconBox.add(icon, { x_fill: false, y_fill: false, x_align: St.Align.START, y_align: St.Align.MIDDLE });
             IconInfoFrame.add(IconBox, { x_fill: false, x_align: St.Align.START });
-
             let SideBox = new St.BoxLayout({ style_class: 'side-box', vertical: true });
             IconInfoFrame.add(SideBox, { x_fill: false, x_align: St.Align.START });
             let fileName = new St.Label({ text: resultMeta.filename, style_class: 'result-detail' });
             SideBox.add(fileName, { x_fill: false, x_align: St.Align.START });
             let lastMod = new St.Label({ text: resultMeta.lastMod, style_class: 'result-detail' });
             SideBox.add(lastMod, { x_fill: false, x_align: St.Align.START });
-        }  else {
-            IconBox.add(icon, { x_fill: false, y_fill: false, x_align: St.Align.MIDDLE, y_align: St.Align.MIDDLE });
-            IconInfoFrame.add(IconBox, { x_fill: false, x_align: St.Align.MIDDLE });
-        }
-        // add path information
-        let prettyPath = new St.Label({ text: resultMeta.prettyPath, style_class: 'result-path' });
-        MainBox.add(prettyPath, { x_fill: false, x_align: St.Align.START });
+            let prettyPath = new St.Label({ text: resultMeta.prettyPath, style_class: 'result-path' });
+            MainBox.add(prettyPath, { x_fill: false, x_align: St.Align.START });
+        } else {
+            let titleDir = new St.Label({ text: resultMeta.name, style_class: 'titleDir' });
+            MainBox.add(titleDir, { x_fill: false, y_fill: true, x_align: St.Align.START,  y_align: St.Align.MIDDLE });
+            let prettyPath = new St.Label({ text: resultMeta.prettyPath, style_class: 'result-pathDir' });
+            MainBox.add(prettyPath, { x_fill: false, x_align: St.Align.START });
+            MainBox.add(icon, { x_fill: false, y_fill: false, x_align: St.Align.MIDDLE, y_align: St.Align.MIDDLE });
+        }       
     }
 };
 
@@ -252,15 +250,13 @@ TrackerSearchProvider.prototype = {
     },
 
     createResultContainerActor: function() {
-        let grid = new IconGrid.IconGrid({ rowLimit: MAX_ROWS, columnLimit: MAX_RESULTS,
-                                           xAlign: St.Align.START });
-    //    global.log(grid);
-        grid.actor.style_class = 'tracker-grid';
-    //    global.log(grid._rowLimit);
-
+        let grid = new IconGrid.IconGrid({ rowLimit: MAX_ROWS, columnLimit: MAX_RESULTS, xAlign: St.Align.START });
+        if (this._categoryType == CategoryType.FTS) {
+            grid.actor.style_class = 'tracker-grid';
+        } else if (this._categoryType == CategoryType.FOLDERS){
+            grid.actor.style_class = 'tracker-folder-grid';
+        }
         let actor = new SearchDisplay.GridSearchResults(this, grid);
-  //      global.log(actor._grid._rowLimit);
-//        global.log(actor._grid._colLimit);
         return actor;
     },
 };

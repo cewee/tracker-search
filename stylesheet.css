@@ -2,6 +2,15 @@
     font-size: 1.2em;
     font-weight: bold;
 }
+.titleDir {
+    font-size: 1em;
+    padding-left: 7px;
+    font-weight: bold;
+}
+.result-pathDir {
+    padding-left: 7px;
+    font-size: .7em;
+}
 .result-path {
     font-size: .7em;
 }
@@ -14,6 +23,15 @@
 .icon-info-frame{
     padding-top: 5px;  
 }
+
+.directory-content {
+    border-radius: 7px;
+    padding: 10px;
+    width: 170px;
+    height: 90px;
+    background-color: rgba(0.0, 0.0, 0.0, 0.55);
+    color: white;
+}
 .result-content {
     border-radius: 7px;
     padding: 10px;
@@ -24,7 +42,16 @@
 }
 .tracker-grid {
     spacing: 8px;
-    -shell-grid-horizontal-item-size: 230px;
+    -shell-grid-horizontal-item-size: 200px;
     -shell-grid-vertical-item-size: 110px;
+    transition-duration: 100;
 }
-
+.tracker-folder-grid {
+    spacing: 8px;
+    -shell-grid-horizontal-item-size: 170px;
+    -shell-grid-vertical-item-size: 95px;
+}
+.tracker-grid:hover {
+    background-color: rgba(255,255,255,0.1);
+    transition-duration: 100;
+}
