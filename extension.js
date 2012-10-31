@@ -17,6 +17,7 @@ const Search        = imports.ui.search;
 const SearchDisplay = imports.ui.searchDisplay;
 const Gio           = imports.gi.Gio;
 const GLib          = imports.gi.GLib;
+const Shell         = imports.gi.Shell;
 const IconGrid      = imports.ui.iconGrid;
 const Util          = imports.misc.util;
 const Tracker       = imports.gi.Tracker;
@@ -26,8 +27,8 @@ const St            = imports.gi.St;
 const DEFAULT_EXEC = 'xdg-open';
 /* Limit search results, since number of displayed items is limited */
 const MAX_RESULTS = 20;
-const MAX_ROWS =3; // this is currently ignored, but bug report is filed : https://bugzilla.gnome.org/show_bug.cgi?id=675527
-const ICON_SIZE = 50;
+const MAX_ROWS = 3; // this is currently ignored, but bug report is filed : https://bugzilla.gnome.org/show_bug.cgi?id=675527
+const ICON_SIZE = 25;
 
 const CategoryType = {
     FTS : 0,
@@ -42,7 +43,7 @@ function TrackerResult(result) {
 // Overwriting layout to display search results.
 TrackerResult.prototype = {
     _init: function(resultMeta) {
-        this.actor = new St.Bin({ reactive: true, track_hover: true });
+        this.actor = new St.Bin({ reactive: true});
         var MainBox = new St.BoxLayout( { style_class: 'result-content', vertical: true });
         this.actor.set_child(MainBox);
         var icon = resultMeta.createIcon(ICON_SIZE);      
@@ -87,15 +88,16 @@ TrackerSearchProvider.prototype = {
 
     _init : function(title, categoryType) {
 	this._categoryType = categoryType;
-        Search.SearchProvider.prototype._init.call(this, title + " (from Tracker)");
+    Search.SearchProvider.prototype._init.call(this, title + " (from Tracker)");
     },
 
-    getResultMetas: function(resultIds) {
+    getResultMetas: function(resultIds,callback) {
         let metas = [];
         for (let i = 0; i < resultIds.length; i++) {
             metas.push(this.getResultMeta(resultIds[i]));
         }
-        return metas;
+    callback(metas);
+//        return metas;
     },
 
     getResultMeta : function(resultId) {
@@ -163,7 +165,6 @@ TrackerSearchProvider.prototype = {
 
     filterResults : function(cursor) {
         let results = [];
-
         try {
             while (cursor != null && cursor.next(null)) {
                 var urn = cursor.get_string(0)[0];
@@ -171,7 +172,7 @@ TrackerSearchProvider.prototype = {
                 var title = cursor.get_string(2)[0];
                 var parentUri = cursor.get_string(3)[0];
                 var lastMod = cursor.get_string(4)[0];
-                var lastMod = "Modified: " + lastMod.split('T')[0];
+                var lastMod = lastMod.split('T')[0];
                 var filename = decodeURI(uri.split('/').pop());
                 // if file does not exist, it won't be shown
         		var f = Gio.file_new_for_uri(uri);
@@ -209,7 +210,6 @@ TrackerSearchProvider.prototype = {
             global.log(this.title + ": Could not traverse results cursor: " + error.message);
             return [];
         }
-
         return (results.length > 0) ? results : [];
     },
 
@@ -229,7 +229,9 @@ TrackerSearchProvider.prototype = {
             global.log(error.message);
             return [];
         }
-	return this.filterResults(cursor);
+
+//	return this.filterResults(cursor);
+return  this.searchSystem.pushResults(this, this.filterResults(cursor) );
     },
 
     getSubsearchResultSet : function(previousResults, terms) {
@@ -247,7 +249,7 @@ TrackerSearchProvider.prototype = {
     },
 
     createResultContainerActor: function() {
-        let grid = new IconGrid.IconGrid({ rowLimit: MAX_ROWS, columnLimit: MAX_RESULTS, xAlign: St.Align.START });
+        let grid = new IconGrid.IconGrid({ rowLimit: MAX_ROWS, columnLimit: MAX_RESULTS, xAlign: St.Align.MIDDLE });
         if (this._categoryType == CategoryType.FTS) {
             grid.actor.style_class = 'tracker-grid';
         } else if (this._categoryType == CategoryType.FOLDERS){
@@ -276,3 +278,4 @@ function disable() {
     Main.overview.removeSearchProvider(trackerSearchProviderFolders);
     trackerSearchProviderFolders = null;
 }
+
