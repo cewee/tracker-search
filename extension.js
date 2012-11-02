@@ -7,7 +7,7 @@
  * the Free Software Foundation; either version 3 of the License, or
  * (at your option) any later version.
  *
- * Version 1.5
+ * Version 1.7
  *
  * https://github.com/cewee/tracker-search
  */
@@ -26,7 +26,7 @@ const St            = imports.gi.St;
 /* let xdg-open pick the appropriate program to open/execute the file */
 const DEFAULT_EXEC = 'xdg-open';
 /* Limit search results, since number of displayed items is limited */
-const MAX_RESULTS = 20;
+const MAX_RESULTS = 40;
 const MAX_ROWS = 3; // this is currently ignored, but bug report is filed : https://bugzilla.gnome.org/show_bug.cgi?id=675527
 const ICON_SIZE = 25;
 
@@ -88,6 +88,9 @@ TrackerSearchProvider.prototype = {
 
     _init : function(title, categoryType) {
 	this._categoryType = categoryType;
+	var grid =  new IconGrid.IconGrid({ rowLimit: MAX_ROWS, columnLimit: 8, xAlign: St.Align.MIDDLE });
+    var actor = new SearchDisplay.GridSearchResults(this, grid);
+	this._grid = grid;
     Search.SearchProvider.prototype._init.call(this, title + " (from Tracker)");
     },
 
@@ -248,16 +251,7 @@ return  this.searchSystem.pushResults(this, this.filterResults(cursor) );
         return result.actor;
     },
 
-    createResultContainerActor: function() {
-        let grid = new IconGrid.IconGrid({ rowLimit: MAX_ROWS, columnLimit: MAX_RESULTS, xAlign: St.Align.MIDDLE });
-        if (this._categoryType == CategoryType.FTS) {
-            grid.actor.style_class = 'tracker-grid';
-        } else if (this._categoryType == CategoryType.FOLDERS){
-            grid.actor.style_class = 'tracker-folder-grid';
-        }
-        let actor = new SearchDisplay.GridSearchResults(this, grid);
-        return actor;
-    },
+  
 };
 
 function init(meta) {
