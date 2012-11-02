@@ -27,7 +27,7 @@ const St            = imports.gi.St;
 const DEFAULT_EXEC = 'xdg-open';
 /* Limit search results, since number of displayed items is limited */
 const MAX_RESULTS = 40;
-const MAX_ROWS = 3; // this is currently ignored, but bug report is filed : https://bugzilla.gnome.org/show_bug.cgi?id=675527
+const MAX_ROWS = 3; // this is currently ignored, but bug report is filed : https://bugzilla.gnome.org/show_bug.cgi?id=687474
 const ICON_SIZE = 25;
 
 const CategoryType = {
