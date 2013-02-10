@@ -31,6 +31,16 @@
     background-color: rgba(0.0, 0.0, 0.0, 0.55);
     color: white;
 }
+
+.result {
+    width: 272px; /* Same width as two normal results + spacing */
+    height: 118px; /* Aspect ratio = 1.75. Normal US business card ratio */
+    border-radius: 4px;
+    padding: 3px;
+    border: 1px rgba(0,0,0,0);
+    transition-duration: 100;
+}
+
 .result-content {
     border-radius: 7px;
     padding: 4px;
@@ -40,7 +50,19 @@
     color: white;
 }
 
+.result:hover {
+    background-color: rgba(255,255,255,0.1);
+    transition-duration: 100;
+}
 
+.result:focus,
+.app-well-app:focus > .overview-icon,
+.search-result-content:focus > .overview-icon,
+.result:selected,
+.app-well-app:selected > .overview-icon,
+.search-result-content:selected > .overview-icon {
+    background-color: rgba(255,255,255,0.33);
+}
 
 .tracker-grid {
     border-radius: 7px;
